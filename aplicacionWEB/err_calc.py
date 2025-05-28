@@ -5,6 +5,7 @@ import random
 import itertools
 import numpy as np
 import plotly.graph_objs as go
+from scipy.stats import norm
 
 # --------------------------------------------------
 # 🔧 Helpers de binarización
@@ -283,3 +284,82 @@ def compute_hamming_histogram(
     fig = go.Figure(data=[hist_trace], layout=layout)
 
     return {"weights": weights, "plot": fig.to_dict()}
+
+
+def compute_float_histogram(
+    dataset_dir: str,
+    float_dim: int,
+    *,
+    vmin: float = -0.23,
+    vmax: float = 0.23,
+    decimals: int = 4,
+    bin_width: float | None = None,
+    n_parts: int = 4,       
+) -> dict:
+    """
+    Histograma de los valores float + líneas que lo dividen en n_parts franjas
+    con el mismo nº de observaciones.
+
+    Devuelve:
+      - values ......... lista con los valores usados
+      - cuts ........... lista de puntos de corte (longitud n_parts-1)
+      - plot ........... figura Plotly serializada (fig.to_dict())
+    """
+    # 1) Cargar y aplanar
+    data_f = load_float_embeddings(dataset_dir, float_dim)      # dict[str, np.ndarray]
+    arrays = [arr.ravel() for arr in data_f.values() if arr.size]
+    if not arrays:
+        raise ValueError("No se encontraron embeddings con esa dimensión.")
+    all_vals = np.concatenate(arrays)
+
+    # 2) Filtrar por rango
+    mask = (all_vals >= vmin) & (all_vals <= vmax)
+    all_vals = all_vals[mask]
+
+    # 3) Histograma
+    if bin_width is not None:
+        xbins = dict(start=vmin, end=vmax, size=bin_width)
+        trace = go.Histogram(x=all_vals, xbins=xbins, name="Datos")
+        title = f"Histograma [{vmin}, {vmax}] (bin_width={bin_width})"
+    else:
+        rounded = np.round(all_vals, decimals=decimals)
+        uniques, counts = np.unique(rounded, return_counts=True)
+        trace = go.Bar(x=uniques.tolist(), y=counts.tolist(), name="Datos")
+        title = f"Histograma redondeado a {decimals} decimales"
+
+    fig = go.Figure(data=[trace])
+    fig.update_layout(
+        title=title,
+        xaxis_title="Valor",
+        yaxis_title="Frecuencia",
+    )
+
+    # 4) Cortes que dejan partes iguales
+    if n_parts < 2:
+        raise ValueError("n_parts debe ser ≥ 2.")
+    probs = np.linspace(0, 100, n_parts + 1)[1:-1]        # p.ej. 20,40,60,80 para quintiles
+    cuts = np.percentile(all_vals, probs)
+
+    # 5) Añadir líneas verticales en los cortes
+    for c in cuts:
+        fig.add_shape(
+            type="line",
+            x0=c, x1=c,
+            yref="paper", y0=0, y1=1,               # de 0 % a 100 % del eje Y
+            line=dict(color="red", width=2, dash="dash"),
+        )
+
+        fig.add_annotation(
+            x=c,
+            y=1.02,
+            yref="paper",
+            showarrow=False,
+            text=f"{c:.4f}",
+            font=dict(color="red"),
+        )
+    return {
+        "values": all_vals.tolist(),
+        "cuts": cuts.tolist(),
+        "plot": fig.to_dict(),
+    }
+

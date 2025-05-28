@@ -7,6 +7,8 @@
 
   <!-- Bootstrap 5 (CDN) para maquetado rápido y responsivo -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <!-- Plotly.js para la gráfica interactiva -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
@@ -35,13 +37,25 @@
         </select>
       </div>
 
+      <!-- Tabla a calcular -->
       <div class="col-12 col-md-6">
         <label class="form-label">Tabla a calcular</label>
         <select name="tabla" class="form-select" required>
-            <option value="err">Equal Error Rate</option>
-            <option value="histogram">Histograma de pesos hamming</option>
+          <option value="err">Equal Error Rate</option>
+          <option value="histogram">Histograma de pesos hamming</option>
+          <option value="histogram_float">Histograma de valores float</option>
         </select>
       </div>
+
+      <!-- Red neuronal -->
+      <div class="col-12 col-md-6">
+        <label class="form-label">Red neuronal</label>
+        <select class="form-select" name="neural" required>
+          <option value="facenet">FaceNet</option>
+          <option value="insightface">insightFace</option>
+        </select>
+      </div>
+
 
       <!-- Binarización -->
       <div class="col-12 col-md-6">
@@ -54,40 +68,68 @@
 
       <!-- Umbral único (3 bits) -->
       <div id="thresholds-3" class="col-12 col-md-6 d-none">
-        <label class="form-label">Umbral</label>
-        <input type="number" step="any" class="form-control" name="t1" placeholder="Ej. 0.75">
+        <label class="form-label">
+          Umbral
+          <span tabindex="0" class="ms-1 text-primary" data-bs-toggle="popover" data-bs-trigger="focus" title="¿Qué es el umbral?" data-bs-html="true" data-bs-content="<img src='/static/umbral_3bits.png' width='700'>">
+            <i class="bi bi-question-circle-fill"></i>
+          </span>
+        </label>
+        <input type="number" step="0.01" class="form-control" name="t1" placeholder="Ej. 0.05">
       </div>
 
       <!-- Dos umbrales (4 bits) -->
       <div id="thresholds-4" class="col-12 col-md-6 d-none">
-        <label class="form-label">Umbral bajo</label>
-        <input type="number" step="any" class="form-control mb-2" name="t2" placeholder="Ej. 0.25">
+        <label class="form-label">
+          Umbral bajo
+          <span tabindex="0" class="ms-1 text-primary" data-bs-toggle="popover" data-bs-trigger="focus" title="¿Qué es el umbral?" data-bs-html="true" data-bs-content="<img src='/static/umbral_4bits.png' width='700'>">
+            <i class="bi bi-question-circle-fill"></i>
+          </span>
+        </label>
+        <input type="number" step="0.1" class="form-control mb-2" name="t2" placeholder="Ej. 0.03">
         <label class="form-label">Umbral alto</label>
-        <input type="number" step="any" class="form-control" name="t3" placeholder="Ej. 0.75">
+        <input type="number" step="0.1" class="form-control" name="t3" placeholder="Ej. 0.07">
       </div>
-      
-      
 
+      <!-- División de histograma (solo para histogram_float) -->
+      <div id="float-split-block" class="col-12 col-md-6 d-none">
+        <label class="form-label">Dividir histograma en partes</label>
+        <select class="form-select" name="n_parts" id="n-parts-select">
+          <option value="4">4 partes</option>
+          <option value="5">5 partes</option>
+          <option value="6">6 partes</option>
+          <option value="7">7 partes</option>
+          <option value="8">8 partes</option>
+          <option value="9">9 partes</option>
+          <option value="10">10 partes</option>
+        </select>
+      </div>
 
-      <!-- Botón -->
-    <div class="row mt-2">
-      <div class="col-auto">
-        <button id="boton-err" class="btn btn-primary">Calcular</button>
+      <!-- Botones -->
+      <div class="col-12">
+        <div class="row g-2">
+          <div class="col-auto">
+            <button id="boton-err" type="button" class="btn btn-primary">Calcular</button>
+          </div>
+          <div class="col-auto">
+            <button id="boton-hamming" type="button" class="btn btn-danger">Borrar tablas</button>
+          </div>
+        </div>
       </div>
-      <div class="col-auto">
-        <button id="boton-hamming" class="btn btn-danger">Borrar tablas</button>
-      </div>
-    </div>
- 
+
     </form>
 
-    <!-- Contenedor de la gráfica -->
-    <!-- <div id="plot" style="min-height:400px"></div> -->
+    <!-- Contenedor de resultados -->
     <div id="results" class="mt-4"></div>
 
   </div><!-- /.container -->
 
   <!-- JS propio -->
   <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script>
+    const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+    popoverTriggerList.forEach(function (popoverTriggerEl) {
+      new bootstrap.Popover(popoverTriggerEl)
+    })
+  </script>
 </body>
 </html>

@@ -3,7 +3,7 @@ import numpy as np
 import plotly.express as px
 import plotly.io as pio
 import json
-from err_calc import compute_err, compute_hamming_histogram
+from err_calc import compute_err, compute_hamming_histogram, compute_float_histogram
 
 app = Flask(__name__)
 
@@ -50,6 +50,7 @@ def api_err():
     params = request.json
     model = int(params['model'])        # p.ej. 512
     bits  = int(params['bits'])         # 3 o 4
+    neural = params['neural']
     # mapear umbrales:
     if bits == 3:
         t1 = float(params['t1'])
@@ -58,7 +59,10 @@ def api_err():
         # aquí asumimos params['t2']=lower, params['t3']=upper
         t1 = float(params['t2'])
         t2 = float(params['t3'])
-    dataset_dir = f"../embeddings{model}_float_LFW"
+    if neural == 'insightface':
+        dataset_dir = "../embeddings512_float_LFW_insightface"
+    else:
+        dataset_dir = f"../embeddings{model}_float_LFW"
     res = compute_err(
         dataset_dir, model, bits,
         t1=t1, t2=t2,
@@ -72,16 +76,40 @@ def api_histogram():
     params = request.json
     model = int(params['model'])
     bits  = int(params['bits'])
+    neural = params['neural']
+
     if bits == 3:
         t1 = float(params['t1'])
         t2 = None
     else:
         t1 = float(params['t2'])
         t2 = float(params['t3'])
-    dataset_dir = f"../embeddings{model}_float_LFW"
+
+    
+    if neural == 'insightface':
+        dataset_dir = "../embeddings512_float_LFW_insightface"
+    else:
+        dataset_dir = f"../embeddings{model}_float_LFW"
     res = compute_hamming_histogram(dataset_dir, model, bits, t1=t1, t2=t2)
     return jsonify(res)
 
+@app.route('/api/histogram_float', methods=['POST'])
+def api_histograma_float():
+    params = request.json
+    model = int(params['model'])
+    neural = params['neural']
+    n_parts = int(params['n_parts'])
+    
+    if neural == 'insightface':
+        dataset_dir = "../embeddings512_float_LFW_insightface"
+    else:
+        dataset_dir = f"../embeddings{model}_float_LFW"
+    if model == 128:
+        (vmin, vmax) = (-0.42, 0.42)
+        res = compute_float_histogram(dataset_dir, model, vmin=vmin, vmax=vmax, n_parts=n_parts)
+    else:
+        res = compute_float_histogram(dataset_dir, model, n_parts=n_parts)
+    return jsonify(res)
 
 @app.route("/")
 def index():

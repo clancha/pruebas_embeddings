@@ -1,49 +1,65 @@
 /* static/app.js */
 document.addEventListener('DOMContentLoaded', () => {
-  // ──────────────────────────────
-  //  📌 Elementos del DOM
-  // ──────────────────────────────
-  const form         = document.getElementById('opts');
-  const bitsSelect   = document.getElementById('bits-select');
-  const th3Block     = document.getElementById('thresholds-3');
-  const th4Block     = document.getElementById('thresholds-4');
-  const resultsDiv   = document.getElementById('results');
-  const btnErr       = document.getElementById('boton-err');
-  const btnHamming   = document.getElementById('boton-hamming');
+  const form       = document.getElementById('opts');
+  const bitsSelect = document.getElementById('bits-select');
+  const th3Block   = document.getElementById('thresholds-3');
+  const th4Block   = document.getElementById('thresholds-4');
+  const resultsDiv = document.getElementById('results');
+  const btnErr     = document.getElementById('boton-err');
+  const btnHamming = document.getElementById('boton-hamming');
+  const tablaSelect = document.querySelector('select[name="tabla"]');
+  const floatSplitBlock = document.getElementById('float-split-block');
 
-  // ──────────────────────────────
-  //  👀 Mostrar/ocultar inputs de umbral
-  // ──────────────────────────────
+  // Mostrar/ocultar umbrales…
   function toggleThresholdInputs() {
     const is3 = bitsSelect.value === '3';
     th3Block.classList.toggle('d-none', !is3);
     th4Block.classList.toggle('d-none',  is3);
     th3Block.querySelector('input[name="t1"]').required = is3;
-    th4Block.querySelectorAll('input').forEach(inp => inp.required = !is3);
+    th4Block.querySelectorAll('input').forEach(i => i.required = !is3);
   }
   bitsSelect.addEventListener('change', toggleThresholdInputs);
-  toggleThresholdInputs();  // estado inicial
+  toggleThresholdInputs();
 
-  // ──────────────────────────────
-  //  🛠️ Construir payload común
-  // ──────────────────────────────
+  function toggleFloatSplitBlock() {
+    floatSplitBlock.classList.toggle('d-none', tablaSelect.value !== 'histogram_float');
+  }
+  tablaSelect.addEventListener('change', toggleFloatSplitBlock);
+  toggleFloatSplitBlock();
+
+  // Construir payload incluyendo 'neural' y forzando model si es insightFace
   function construirPayload() {
-    const fd = new FormData(form);
-    const payload = { model: fd.get('model'), bits: fd.get('bits') };
-    if (payload.bits === '3') {
+    const fd      = new FormData(form);
+    let model     = fd.get('model');
+    const bits    = fd.get('bits');
+    const neural  = fd.get('neural');
+
+    // Si insightFace → model = 512
+    if (neural === 'insightface') {
+      model = '512';
+    }
+
+    const payload = {
+      model:  model,
+      bits:   bits,
+      neural: neural
+    };
+
+    if (bits === '3') {
       payload.t1 = fd.get('t1');
     } else {
       payload.t2 = fd.get('t2');
       payload.t3 = fd.get('t3');
     }
+    if (tablaSelect.value === 'histogram_float') {
+      payload.n_parts = fd.get('n_parts');
+    }
+    console.log(payload);
     return payload;
   }
 
-  // ──────────────────────────────
-  //  🚀 Enviar y renderizar sin borrar lo anterior
-  // ──────────────────────────────
+  // Envío genérico sin borrar resultados previos
   async function enviarPayload(payload, url) {
-    // 1) Spinner
     const spinner = document.createElement('div');
     spinner.innerHTML = `
       <div class="text-center my-3">
@@ -53,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsDiv.prepend(spinner);
 
     try {
-      // 2) Esperar al servidor
       const resp = await fetch(url, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,12 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
 
-      // 3) Nuevo contenedor para este resultado
       const wrapper = document.createElement('div');
       wrapper.className = 'my-4';
       resultsDiv.prepend(wrapper);
 
-      // 4) Dibujar: detecta si viene json.plot (ERR) o json.hist (hamming)
       const fig = json.plot ?? json.hist;
       if (fig) {
         Plotly.newPlot(wrapper, fig.data, fig.layout, { responsive: true });
@@ -78,10 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>`;
       }
     } catch (err) {
-      // 5) Mostrar error sin borrar lo anterior
       const alert = document.createElement('div');
       alert.className = 'alert alert-danger';
-      alert.role = 'alert';
+      alert.role      = 'alert';
       alert.innerText = `⚠️ Error: ${err.message}`;
       resultsDiv.prepend(alert);
       console.error(err);
@@ -90,22 +102,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ──────────────────────────────
-  //  🎯 Botón “Calcular err”
-  // ──────────────────────────────
+  // Botón “Calcular”
   btnErr.addEventListener('click', async evt => {
     evt.preventDefault();
-    const formulario = new FormData(form);
-    let url = formulario.get('tabla');
+    const fd    = new FormData(form);
+    const url   = fd.get('tabla');            // "err" o "histogram"
     const payload = construirPayload();
     await enviarPayload(payload, `/api/${url}`);
   });
 
-  // ──────────────────────────────
-  //  🎯 Botón “Calcular histograma de hamming”
-  // ──────────────────────────────
-  btnHamming.addEventListener('click', async evt => {
+  // Botón “Borrar tablas”
+  btnHamming.addEventListener('click', evt => {
     evt.preventDefault();
-    resultsDiv.innerHTML='';
+    resultsDiv.innerHTML = '';
   });
 });
